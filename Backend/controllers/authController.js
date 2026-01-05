@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import userModel from "../models/userModel.js";
-import transporter from "../Backend/config/nodemailer.js";
+import transporter from "../config/nodemailer.js";
 
 export const register = async (req, res) => {
   try {
@@ -185,5 +185,102 @@ export const verifyEmail = async (req, res) => {
     res
       .status(500)
       .json({ success: false, message: "Error verifying email", error });
+  }
+};
+
+//Check if user is Authenticated
+export const isAuthenticated = async (req, res) => {
+  try {
+    return res.json({
+      success: true,
+      message: "User is Authenticated successfully",
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: "User is not Authenticated", error });
+  }
+};
+
+//Send Password Reset Otp
+export const sendResetOtp = async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.json({ success: false, message: "Email is required" });
+  }
+
+  try {
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.resetOtp = otp;
+    user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
+    await user.save();
+
+    const mailOptions = {
+      from: process.env.SENDER_EMAIL,
+      to: user.email,
+      subject: "Password Reset OTP",
+      text: `Hello ${user.name},\n\nYour OTP for resetting password is: ${otp}\nThis OTP is valid for 15 minutes.\n\nBest regards,\nThe Team`,
+    };
+    await transporter.sendMail(mailOptions);
+
+    return res.json({
+      success: true,
+      message: "Otp is sent to your email successfully",
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: "User is not Authenticated", error });
+  }
+};
+
+//Reset User Password
+
+export const resetPassword = async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+  if (!email || !otp || !newPassword) {
+    res.json({
+      success: false,
+      message: "Email, Otp and new password is required",
+    });
+  }
+
+  try {
+    const user = await userModel.findOne({ email });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    if (user.resetOtp=== "" || user.resetOtp !== otp) {
+      return res.json({ success: false, message: "Invalid OTP" });
+    }
+
+    if (Date.now() > user.resetOtpExpireAt) {
+      return res.json({ success: false, message: "OTP expired" });
+    }
+
+    const hashedPassword=await bcrypt.hash(newPassword,10);
+    user.password=hashedPassword;
+    user.resetOtp="";
+    user.resetOtpExpireAt=0;
+    user.save();
+
+    return res.json({
+      success: true,
+      message: "Password has been reset successfully",
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: "User is not Authenticated", error });
   }
 };
