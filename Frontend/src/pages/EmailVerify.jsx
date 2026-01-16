@@ -1,8 +1,16 @@
-import React from "react";
+import React, { useContext, useEffect } from "react";
 import { assets } from "../assets/assets";
+import { AppContent } from "../context/AppContext";
+import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export const EmailVerify = () => {
+  const { backendUrl, isLoggedin, userData, getUserData } =
+    React.useContext(AppContent);
   const inputRefs = React.useRef([]);
+  axios.defaults.withCredentials = true;
+  const navigate = useNavigate();
 
   const handleInput = (e, index) => {
     const value = e.target.value;
@@ -24,7 +32,34 @@ export const EmailVerify = () => {
         inputRefs.current[index].value = char;
       }
     });
-  }
+  };
+
+  const onSubmitHandler = async (e) => {
+    try {
+      e.preventDefault();
+      const otpArray = inputRefs.current.map((input) => input.value);
+      const otp = otpArray.join("");
+      //send otp to backend for verification
+      const { data } = await axios.post(
+        backendUrl + "/api/auth/verify-account",
+        { otp }
+      );
+
+      if (data.success) {
+        toast.success(data.message || "Email verified successfully");
+        isLoggedin && getUserData();
+        navigate("/");
+      } else {
+        toast.error(data.message || "Error verifying email");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || error.message);
+    }
+  };
+
+  useEffect(() => {
+    isLoggedin && userData && userData.isAccountVerified && navigate("/");
+  },[isLoggedin,userData])
 
   return (
     <div className="flex items-center justify-center min-h-screen  bg-gradient-to-br from-blue-200 to-purple-400">
@@ -36,6 +71,7 @@ export const EmailVerify = () => {
       />
 
       <form
+        onSubmit={onSubmitHandler}
         action="#"
         className="bg-slate-900 p-8 rounded-lg shadow-lg w-96 text-sm"
       >

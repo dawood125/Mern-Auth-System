@@ -16,7 +16,6 @@ export const register = async (req, res) => {
 
     if (existingUser) {
       return res
-        .status(400)
         .json({ success: false, message: "User already exists" });
     }
 
@@ -128,7 +127,7 @@ export const logout = (req, res) => {
 //Send Verification OTP to the user Email
 export const sendVerifyOtp = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const userId = req.userId;
     const user = await userModel.findById(userId);
     if (!user) {
       return res
@@ -160,7 +159,8 @@ export const sendVerifyOtp = async (req, res) => {
 
 export const verifyEmail = async (req, res) => {
   try {
-    const { userId, otp } = req.body;
+    const userId = req.userId;
+    const { otp } = req.body;
     const user = await userModel.findById(userId);
     if (!user) {
       return res
