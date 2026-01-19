@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import userModel from "../models/userModel.js";
 import transporter from "../config/nodemailer.js";
+import { EMAIL_VERIFY_TEMPLATE, PASSWORD_RESET_TEMPLATE } from "../config/emailTemplates.js";
 
 export const register = async (req, res) => {
   try {
@@ -15,8 +16,7 @@ export const register = async (req, res) => {
     const existingUser = await userModel.findOne({ email });
 
     if (existingUser) {
-      return res
-        .json({ success: false, message: "User already exists" });
+      return res.json({ success: false, message: "User already exists" });
     }
 
     const hasedPassword = await bcrypt.hash(password, 10);
@@ -146,7 +146,11 @@ export const sendVerifyOtp = async (req, res) => {
       from: process.env.SENDER_EMAIL,
       to: user.email,
       subject: "Account Verification OTP",
-      text: `Hello ${user.name},\n\nYour OTP for account verification is: ${otp}\nThis OTP is valid for 24 hours.\n\nBest regards,\nThe Team`,
+      // text: `Hello ${user.name},\n\nYour OTP for account verification is: ${otp}\nThis OTP is valid for 24 hours.\n\nBest regards,\nThe Team`,
+      html: EMAIL_VERIFY_TEMPLATE.replace("{{otp}}", otp).replace(
+        "{{email}}",
+        email,
+      ),
     };
     await transporter.sendMail(mailOptions);
     res.json({ success: true, message: "OTP sent to email" });
@@ -226,7 +230,11 @@ export const sendResetOtp = async (req, res) => {
       from: process.env.SENDER_EMAIL,
       to: user.email,
       subject: "Password Reset OTP",
-      text: `Hello ${user.name},\n\nYour OTP for resetting password is: ${otp}\nThis OTP is valid for 15 minutes.\n\nBest regards,\nThe Team`,
+      // text: `Hello ${user.name},\n\nYour OTP for resetting password is: ${otp}\nThis OTP is valid for 15 minutes.\n\nBest regards,\nThe Team`,
+      html: PASSWORD_RESET_TEMPLATE.replace("{{otp}}", otp).replace(
+        "{{email}}",
+        email,
+      ),
     };
     await transporter.sendMail(mailOptions);
 
@@ -260,7 +268,7 @@ export const resetPassword = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    if (user.resetOtp=== "" || user.resetOtp !== otp) {
+    if (user.resetOtp === "" || user.resetOtp !== otp) {
       return res.json({ success: false, message: "Invalid OTP" });
     }
 
@@ -268,10 +276,10 @@ export const resetPassword = async (req, res) => {
       return res.json({ success: false, message: "OTP expired" });
     }
 
-    const hashedPassword=await bcrypt.hash(newPassword,10);
-    user.password=hashedPassword;
-    user.resetOtp="";
-    user.resetOtpExpireAt=0;
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.resetOtp = "";
+    user.resetOtpExpireAt = 0;
     user.save();
 
     return res.json({
